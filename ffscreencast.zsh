@@ -4,7 +4,8 @@
 
 mic_codec=libopus
 mic_bitrate=256k
-framerate=60
+framerate=24
+probing=(-analyzeduration 10M -probesize 100M)
 
 ### Set Save directory
 
@@ -17,15 +18,15 @@ fi
 ### video codec collection
 
 video_x264=(-c:v libx264 -preset:v ultrafast -qp 0)
+video_x264g=(-c:v libx264 -preset:v ultrafast -crf 24)
 video_x265=(-c:v libx265 -preset:v ultrafast -qp 0)
 video_vp8=(-c:v libvpx -qmin 4 -qmax 50 -crf 10)
 video_vp9=(-c:v libvpx-vp9 -crf 31 -b:v 0)
-video_nvfast=(-c:v h264_nvenc -profile:v main -preset:v ultrafast -qp 0)
 video_nv264=(-c:v h264_nvenc -profile:v main -preset:v default -qp 23)
 video_nv265=(-c:v hevc_nvenc -profile:v main -preset:v default -qp 27)
-video_vafast=(-vf 'format=nv12,hwupload' -c:b h264_vaapi -preset:v ultrafast -qp 0)
-video_va264=(-vf 'format=nv12,hwupload' -c:b h264_vaapi -qp 23)
-video_va265=(-vf 'format=nv12,hwupload' -c:b hevc_vaapi -qp 27)
+video_va264=(-vf 'format=nv12,hwupload' -c:v h264_vaapi -qp 23)
+video_va265=(-vf 'format=nv12,hwupload' -c:v hevc_vaapi -qp 27)
+ext="mkv"
 typeset -a video_opts
 
 # set
@@ -35,6 +36,9 @@ base_param=()
 case $1 in
 x264)
   video_opts=($video_x264)
+  ;;
+x264good)
+  video_opts=($video_x264g)
   ;;
 x265)
   video_opts=($video_x265)
@@ -57,10 +61,12 @@ nv265)
 vafast)
   video_opts=($video_vafast)
   base_param=(-vaapi_device /dev/dri/renderD128)
+  ext="mp4"
   ;;
 va264)
   video_opts=($video_va264)
   base_param=(-vaapi_device /dev/dri/renderD128)
+  ext="mp4"
   ;;
 va265)
   video_opts=($video_va265)
@@ -68,7 +74,7 @@ va265)
   ;;
 *)
   print 'You must set vcodec for $1.' >&2
-  print 'Avilable formats: x264, x265, vp8, vp9, nvfast, nv264, nv265, vafast, va264, va265.' >&2
+  print 'Avilable formats: x264, x264good, x265, vp8, vp9, nv264, nv265, va264, va265.' >&2
   exit 1
 esac
   
@@ -104,9 +110,9 @@ then
   geo=$(perl -n -e '/geometry (\d+x\d+)/; print $1;' <<< "$xwininfo")
   corn=$(perl -n -e  '/Corners:\s+\+(\d+)\+(\d+)/ && print $1 . "," . $2;' <<< "$xwininfo")
   
-  ffmpeg $base_param -video_size $(even_round $geo) -framerate $framerate -i "$DISPLAY+$(even_round $corn)" $mic_arg[@] $video_opts "$SAVE_DIR/$(date +"%y%m%d%H%M%S")".mkv
+  ffmpeg $probing $base_param -video_size $(even_round $geo) -framerate $framerate -i "$DISPLAY+$(even_round $corn)" $mic_arg[@] $video_opts "$SAVE_DIR/$(date +"%y%m%d%H%M%S")".$ext
 else
   base_param+=(-f x11grab)
   geo=$(xwininfo -root | perl -n -e '/geometry (\d+x\d+)/ && print $1;')
-  ffmpeg $base_param -video_size $(even_round $geo) -framerate $framerate -i "$DISPLAY" $mic_arg[@] $video_opts "$SAVE_DIR/$(date +"%y%m%d%H%M%S")".mkv
+  ffmpeg $probing $base_param -video_size $(even_round $geo) -framerate $framerate -i "$DISPLAY" $mic_arg[@] $video_opts "$SAVE_DIR/$(date +"%y%m%d%H%M%S")".$ext
 fi
